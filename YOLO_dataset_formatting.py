@@ -1,3 +1,7 @@
+# Prueba de uso del framework YOLOv11.
+# El programa simplemente recibe un vídeo, detecta cada uno de los vehículos en él y les asigna una ID y demás metadatos. Cada vehículo es
+# recuadrado e identificado con su ID correspondiente.
+
 import cv2
 from ultralytics import YOLO
 from collections import defaultdict
