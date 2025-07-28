@@ -35,10 +35,8 @@ while cap.isOpened():
     if resultados[0].boxes.data is not None:
         cajas = resultados[0].boxes.xyxy.cpu()
         ids = resultados[0].boxes.id.int().cpu().tolist()
-        indices_clase = resultados[0].boxes.cls.int().cpu().tolist()
-        confidences = resultados[0].boxes.conf.cpu()
 
-        for caja, id_track, id_clase, conf in zip(cajas, ids, indices_clase, confidences):
+        for caja, id_track in zip(cajas, ids):
             x1, y1, x2, y2 = map(int, caja)
 
             # Recorte limpio del vehículo.
