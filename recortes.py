@@ -1,56 +1,53 @@
-# Primeros pasos para la segmentación de los vehículos en cada frame.
-# El programa guarda en la carpeta "recortes" cada uno de los vehículos del vídeo en forma de carpeta. En cada carpeta se 
-# guardan los recortes del respectivo vehículo en cada uno de los frames del vídeo.
+# First steps in video segmentation, for saving car snippets in every frame.
+# The following program saves each vehicle in the video as a folder in the "recortes" folder.
+# Each folder stores the clippings of the respective vehicle in each frame of the video.
 
 import cv2
 import os
 from ultralytics import YOLO
 
-# Cargamos el modelo YOLOv11.
+# Load our model with YOLOv11.
 model = YOLO("yolo11n.pt")
-clases = model.names
 
-# Ruta del video y nombre base del video.
-video_path = "../001_DAY_TXT_CLEAR_BRAKECHECK/1.mp4"
-nombre_video = os.path.splitext(os.path.basename(video_path))[0]
+# Path to the original video, video name and folder.
+video_path = "../videos/001_DAY_TXT_CLEAR_BRAKECHECK/1.mp4"
+folder = os.path.split(os.path.dirname(video_path))[1] # 001_DAY_TXT_CLEAR_BRAKECHECK
+video_name = os.path.basename(video_path) # 1.mp4
 
-# Creamos carpeta raíz para guardar recortes.
-output_root = f"recortes/{nombre_video}"
-os.makedirs(output_root, exist_ok=True)
+# Create root directory to save car snippets.
+output_path = f"../videos/recortes/{folder}"
+os.makedirs(output_path, exist_ok=True)
 
-# Iniciar captura de video.
+# Start video capture.
 cap = cv2.VideoCapture(video_path)
 frame_id = 0
 
-while cap.isOpened():
-    leido, frame = cap.read()
-    if not leido:
-        break
-
+read, frame = cap.read()
+while cap.isOpened() and read:
+    print("vuelta ", frame_id)
     frame_id += 1
-    frame_sin_anotaciones = frame.copy() # Copia del frame original para no guardar las «bounding boxes».
+    clean_frame = frame.copy() # Copy of the original frame, without bounding boxes.
 
-    resultados = model.track(frame, persist=True)
+    results = model.track(frame, persist=True)
+    if results and results[0].boxes is not None:
+        print("results no es vacio ni none")
+        boxes = results[0].boxes.xyxy.cpu()
+        ids = results[0].boxes.id.int().cpu().tolist()
 
-    if resultados[0].boxes.data is not None:
-        cajas = resultados[0].boxes.xyxy.cpu()
-        ids = resultados[0].boxes.id.int().cpu().tolist()
+        for box, id_track in zip(boxes, ids):
+            x1, y1, x2, y2 = map(int, box)
 
-        for caja, id_track in zip(cajas, ids):
-            x1, y1, x2, y2 = map(int, caja)
+            # Clean snippet of the vehicle
+            snippet = clean_frame[max(0, y1):max(0, y2), max(0, x1):max(0, x2)]
+            if snippet.size != 0: # If the current clipping is NOT empty...
+                # Save the snippet in the folder corresponding to its vehicle ID.
+                folder_id = os.path.join(output_path, f"id{id_track}")
+                os.makedirs(folder_id, exist_ok=True)
 
-            # Recorte limpio del vehículo.
-            recorte = frame_sin_anotaciones[max(0, y1):max(0, y2), max(0, x1):max(0, x2)] 
-            if recorte.size == 0: # Si el recorte está vacío, ignoramos.
-                continue
-
-            # Guardamos el recorte en la carpeta correspondiente al ID del vehículo.
-            carpeta_id = os.path.join(output_root, f"id{id_track}")
-            os.makedirs(carpeta_id, exist_ok=True)
-
-            # Guardamos el recorte con el frame actual como nombre.
-            nombre_imagen = f"frame_{frame_id:05}.jpg"
-            ruta_guardado = os.path.join(carpeta_id, nombre_imagen)
-            cv2.imwrite(ruta_guardado, recorte)
+                # Guardamos el recorte con el frame actual como nombre.
+                img_name = f"frame_{frame_id}.jpg"
+                save_path = os.path.join(folder_id, img_name)
+                cv2.imwrite(save_path, snippet)
+    read, frame = cap.read()
 
 cap.release()
